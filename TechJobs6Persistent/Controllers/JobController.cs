@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TechJobs6Persistent.Data;
 using TechJobs6Persistent.Models;
@@ -21,7 +22,7 @@ namespace TechJobs6Persistent.Controllers
             context = dbContext;
         }
 
-        // GET: /<controller>/
+        // GET: /<controller>/Fetch-employer information
         public IActionResult Index()
         {
             List<Job> jobs = context.Jobs.Include(j => j.Employer).ToList();
@@ -29,17 +30,62 @@ namespace TechJobs6Persistent.Controllers
             return View(jobs);
         }
 
+        // GET: /Job/Add
         public IActionResult Add()
         {
-            return View();
+            // Fetch all employers from the database
+            List<Employer> employers = context.Employers.ToList();
+
+            // Create an instance of AddJobViewModel
+            var viewModel = new AddJobViewModel();
+
+            // Populate the Employers list in AddJobViewModel with SelectListItems
+            viewModel.Employers = employers
+                .Select(e => new SelectListItem
+                {
+                    Value = e.Id.ToString(),
+                    Text = e.Name
+                })
+                .ToList();
+
+            // Pass viewModel to the Add view
+            return View(viewModel);
         }
 
+        // POST: /Job/Add
         [HttpPost]
-        public IActionResult ProcessAddJobForm()
+        public IActionResult Add(AddJobViewModel viewModel)
         {
-            return View();
-        }
+            if (ModelState.IsValid)
+            {
+                // Create new Job object
+                Job newJob = new Job
+                {
+                    Name = viewModel.Name,
+                    EmployerId = viewModel.EmployerId, 
+                };
 
+                // Add to database
+                context.Jobs.Add(newJob);
+                context.SaveChanges();
+
+                // Redirect to Index or another action after successful creation
+                return Redirect("/");
+            }
+
+            // If model state is not valid, reload the form with errors
+            // Fetch employers again and populate viewModel
+            viewModel.Employers = context.Employers
+                .Select(e => new SelectListItem
+                {
+                    Value = e.Id.ToString(),
+                    Text = e.Name
+                })
+                .ToList();
+
+            return View(viewModel);
+        }
+         //Fetch all jobs from the database pass -list to delete view
         public IActionResult Delete()
         {
             ViewBag.jobs = context.Jobs.ToList();
@@ -48,6 +94,7 @@ namespace TechJobs6Persistent.Controllers
         }
 
         [HttpPost]
+        //Delete job from database- save change- return jobIndex
         public IActionResult Delete(int[] jobIds)
         {
             foreach (int jobId in jobIds)
@@ -60,7 +107,7 @@ namespace TechJobs6Persistent.Controllers
 
             return Redirect("/Job");
         }
-
+        //Fetch the job with id-include employer&skills - create JobDetailViewModel
         public IActionResult Detail(int id)
         {
             Job theJob = context.Jobs.Include(j => j.Employer).Include(j => j.Skills).Single(j => j.Id == id);
